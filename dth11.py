@@ -42,7 +42,9 @@ def check_readings():
 def post_readings(temp, humidity):
   #:3000/stations/3/readings temp=12 humidity=34 Authorization:'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE0OTcwMjI5Njh9.edJNCTwSH-tckPav46CRdoA9ng1oeP_r7aLZwQoyYTY'
   r = requests.post("http://localhost:3000/stations/" + station_id + "/readings", data = {"temp": temp, "humidity": humidity}, headers = {"Authorization": auth_token})
-  print r
+  if r.status_code == 201:
+    print "Great success! It's " + str(temp) " degrees outside!"
+  return
 
 login()
 
