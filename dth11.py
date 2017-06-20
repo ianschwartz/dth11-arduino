@@ -1,16 +1,18 @@
-# POST :3000/stations/3/readings temp=12 humidity=34 Authorization:'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE0OTcwMjI5Njh9.edJNCTwSH-tckPav46CRdoA9ng1oeP_r7aLZwQoyYTY'
-# http POST :3000/auth/login email="ian@schwartz.world" name='hank' password='meatpie123'
 import requests
 import json
 import serial
 
+# open serial port
 ser = serial.Serial('/dev/ttyACM1', 19200)
-url = "http://localhost:3000"
+
+# establish some variables
+url = "https://weathertown-ma.herokuapp.com"
 email = ""
 user_id = 0
 auth_token = ''
 station_id = 0
 
+# start up
 def start_up():
   print "Welcome to Weathertown!"
   print "Enter 1 to login"
@@ -23,25 +25,35 @@ def start_up():
   else:
     return start_up() 
 
+# If you need a new account
 def sign_up():
-  name = raw_input('Enter your name -->')
+  # enter your name
+  name = raw_input('Enter your name --> ')
+  
+  # choose your email and password
   global email
-  email = raw_input('Enter your email -->')
-  password = raw_input('Enter your password -->')
-  confirmation = raw_input('Confirm your password -->')
-  r = requests.post(url + "/signup", data = {'email': email, 'password': password, 'password_confirmation': confirmation, name: 'name'})
-  print r
-  return
+  email = raw_input('Enter your email --> ')
+  password = raw_input('Enter your password --> ')
+  confirmation = raw_input('Confirm your password --> ')
+  sign_up_data = {'email': email, 'password': password, 'password_confirmation': confirmation, 'name': name}
+  r = requests.post(url + "/signup", data = sign_up_data)
+  print
+  print sign_up_data
+  return start_up()
 
+#if you already have an account
 def login():
   global email
   password = ''
   global auth_token
 
+  # input your email and password.
   email = raw_input('What is your email address --> ')
   password = raw_input('What is your password --> ')
+
   r = requests.post(url + "/auth/login", data = { "email": email, "password": password })
   parsed_json = json.loads(r.text)
+
   if r.status_code == 401:
     print "Invalid credentials"
     return login()
@@ -49,12 +61,17 @@ def login():
     auth_token = parsed_json['auth_token']
     return select_station()
 
+# lists the user's available stations and let's them choose one (or make a new one)
 def select_station():
   global station_id
+
+  # gets your data
   global user_id
   r = requests.get(url + "/user", data = {'email': email})
   user = json.loads(r.text)
   user_id = user['id']
+
+  # lists your stations
   print "Here are your stations:"
   for s in user['stations']:
     print str(s['id']) + ". " + s['name']
@@ -65,11 +82,14 @@ def select_station():
     station_id = choice
     return check_readings()
 
+# add a new station
 def add_station():
   global station_id
   name = raw_input('What would you like to name the station? --> ')
   zipcode = raw_input('What is the zip code of the station? --> ')
   r = requests.post(url + '/stations/', data = {"name": name, "zipcode": zipcode, 'user_id': user_id}, headers = {"Authorization": auth_token})
+
+  # checks if station added successfully
   if r.status_code == 201:
     parsed_json = json.loads(r.text)
     station_id = parsed_json['id']
@@ -80,21 +100,22 @@ def add_station():
     print "Something went wrong, try again"
     return add_station()
 
-
 def check_readings():
+  # gets a reading from the Arduino over Serial
   reading = ser.readline()
 
+  # sometimes the reading gets garbled, this validates it
   if reading[:8] == '{"temp":' and len(reading) >= 25 and len(reading) <= 28:
-    # return post_readings(reading)
+    print "Reading successful"
     print reading
     return post_readings(reading)
   else:
-    print "nope"
+    # if the reading is invalid, try again
+    print "Invalid reading. Trying again."
     print reading
     return check_readings()
 
 def post_readings(reading):
-  #:3000/stations/3/readings temp=12 humidity=34 Authorization:'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE0OTcwMjI5Njh9.edJNCTwSH-tckPav46CRdoA9ng1oeP_r7aLZwQoyYTY'
   parsed_json = json.loads(reading)
   r = requests.post(url + "/stations/" + str(station_id) + "/readings", data = parsed_json, headers = {"Authorization": auth_token})
   if r.status_code == 201:
@@ -105,14 +126,3 @@ def post_readings(reading):
   return
 
 start_up()
-
-
-# logs into the API with a post request
-
-
-
-# API returns JSON token, variable stores it
-
-# Once per hour, checks temperature reading
-
-# uploads reading to the API using the stored JSON token
